@@ -13,6 +13,9 @@ let currentGame = null;
 let music;
 let bounceSound;
 const maxBalls = 100;
+let rings3 = [];
+let holeAngle;
+let currentRingIndex = 0;
 
 function preload() {
   music = loadSound('music.mp3');
@@ -203,15 +206,19 @@ function resetSketch() {
   gameOver = false;
   animationFrame = 0;
   rings3 = [];
-  const nbRings = 30;
-  const step     = 8;
-  const baseRad  = 50;
-  for (let i=0; i<nbRings; i++) {
-    rings3.push(baseRad + i*step);
+  currentRingIndex = 0;
+  const nbRings = 15;
+  const step = 15; 
+  const baseRad = 40;
+  for (let i = 0; i < nbRings; i++) {
+    rings3.push({
+      radius: baseRad + i * step,
+      rotation: 0,
+      isActive: i === 0
+    });
   }
-  holeAngle    = PI/4;
-  holeRotation = 0;
-  balls = [{ x:0, y:0, vx:random(-3,3), vy:random(-3,3), r:6, escaped:false }];
+  holeAngle = PI / 3;
+  balls = [{ x: 0, y: 0, vx: random(-2, 2), vy: random(-2, 2), r: 8, escaped: false }];
   background(0);
   hue = 0;
   gameOver = false;
@@ -251,49 +258,89 @@ function drawGame3() {
     drawGoodGameAnimation();
     return;
   }
+  
   background(0);
   translate(width/2, height/2);
-  holeRotation = (holeRotation + 0.01) % TWO_PI;
+  
+  // ⭐ Dessiner tous les rings mais seul l'actif bouge
   stroke(255);
-  strokeWeight(2);
+  strokeWeight(3);
   noFill();
-  for (let r of rings3) {
-    let startVis = (holeRotation + holeAngle) % TWO_PI;
-    let endVis   = (holeRotation + TWO_PI) % TWO_PI;
-    arc(0,0, r*2, r*2, startVis, endVis);
+  
+  for (let i = 0; i < rings3.length; i++) {
+    let ring = rings3[i];
+    
+    // ⭐ Seul le ring actuel bouge
+    if (i === currentRingIndex && !ring.broken) {
+      ring.rotation = (ring.rotation + 0.02) % TWO_PI;
+      stroke(100, 255, 255); // Couleur différente pour le ring actif
+      strokeWeight(4);
+    } else {
+      stroke(255, 100); // Rings inactifs plus transparents
+      strokeWeight(2);
+    }
+    
+    if (!ring.broken) {
+      let startVis = (ring.rotation + holeAngle) % TWO_PI;
+      let endVis = (ring.rotation + TWO_PI) % TWO_PI;
+      arc(0, 0, ring.radius * 2, ring.radius * 2, startVis, endVis);
+    }
   }
+  
+  // ⭐ Physique de la balle
   let b = balls[0];
-  b.vy += gravity;
+  b.vy += gravity * 0.6; // Gravité plus douce
   b.vx = constrain(b.vx, -maxSpeed, maxSpeed);
   b.vy = constrain(b.vy, -maxSpeed, maxSpeed);
   b.x += b.vx;
   b.y += b.vy;
+  
   noStroke();
-  fill(0, 200, 255);
-  circle(b.x, b.y, b.r*2);
-  for (let i=rings3.length-1; i>=0; i--) {
-    let R = rings3[i];
-    let d = sqrt(b.x*b.x + b.y*b.y);
-    if (abs(d - R) < b.r) {
+  fill((hue) % 360, 255, 255);
+  circle(b.x, b.y, b.r * 2);
+  
+  // ⭐ Collision uniquement avec le ring actif
+  if (currentRingIndex < rings3.length) {
+    let activeRing = rings3[currentRingIndex];
+    let d = sqrt(b.x * b.x + b.y * b.y);
+    
+    // Vérifier collision avec le ring actif
+    if (abs(d - activeRing.radius) < b.r && !activeRing.broken) {
       let ang = atan2(b.y, b.x);
       if (ang < 0) ang += TWO_PI;
-      if (angleDansIntervalle(ang, holeRotation, holeAngle)) {
-        rings3.splice(i,1);
+      
+      // ⭐ Si la balle passe par le trou
+      if (angleDansIntervalle(ang, activeRing.rotation, holeAngle)) {
+        activeRing.broken = true;
+        currentRingIndex++; // ⭐ Passer au ring suivant
+        bounceSound.play();
+        
+        // Petit boost quand on casse un ring
+        let boostFactor = 1.1;
+        b.vx *= boostFactor;
+        b.vy *= boostFactor;
+        
       } else {
-        let nx = b.x/d, ny = b.y/d;
-        let dot = b.vx*nx + b.vy*ny;
-        b.vx -= 2*dot*nx;
-        b.vy -= 2*dot*ny;
+        // Rebond normal
+        bounceSound.play();
+        let nx = b.x / d, ny = b.y / d;
+        let dot = b.vx * nx + b.vy * ny;
+        b.vx -= 2 * dot * nx;
+        b.vy -= 2 * dot * ny;
         b.vx *= accelerationFactor;
         b.vy *= accelerationFactor;
-        let overlap = b.r + d - R;
-        b.x -= nx*overlap;
-        b.y -= ny*overlap;
+        
+        let overlap = b.r + d - activeRing.radius;
+        b.x -= nx * overlap;
+        b.y -= ny * overlap;
       }
-      break;
     }
   }
-  if (rings3.length === 0) {
+  
+  hue = (hue + 2) % 360;
+  
+  // ⭐ Victoire quand tous les rings sont cassés
+  if (currentRingIndex >= rings3.length) {
     gameOver = true;
   }
 }
