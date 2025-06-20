@@ -137,8 +137,8 @@ function drawGame2() {
   for (let i = 0; i < balls.length; i++) {
     let b = balls[i];
     b.vy += gravity;
-    b.vx = constrain(b.vx, -maxSpeed, maxSpeed);
-    b.vy = constrain(b.vy, -maxSpeed, maxSpeed);
+    b.vx = constrain(b.vx, -5, 5);
+    b.vy = constrain(b.vy, -5, 5);
     b.x += b.vx;
     b.y += b.vy;
     noStroke();
@@ -310,7 +310,7 @@ function drawGame3() {
   }
   
   let b = balls[0];
-  b.vy += gravity * 0.6;
+  b.vy += gravity * 0.4;
   b.vx = constrain(b.vx, -maxSpeed, maxSpeed);
   b.vy = constrain(b.vy, -maxSpeed, maxSpeed);
   b.x += b.vx;
@@ -332,7 +332,7 @@ function drawGame3() {
         activeRing.broken = true;
         currentRingIndex++;
         bounceSound.play();
-        let boostFactor = 1.1;
+        let boostFactor = 1.0;
         b.vx *= boostFactor;
         b.vy *= boostFactor;
         
